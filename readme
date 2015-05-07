@@ -1,0 +1,42 @@
+FAQ:
+
+
+About this tool:
+	mainly build for unsupervised/semi-supervised segmentation.
+    First round is maximum-forward match with dictionary.
+	Then two rounds of n-gram segmentation with updated ngram language model to solve ambiguity
+
+How to run:
+	the dict file should be one word per line. Each character should be 3 bytes, digits to <d>, alpha to <a>.
+	the LM file is normal srilm file
+
+About single/multi thread version:
+
+1. main differences: 
+   In main.cpp:        add "run" function as the threading func.
+                       add "Segment" function to invoke the multi-threading.
+   In Class Segmentor: add three variable to store the distributed sentences and the result including:
+   _sentences, _sent_str and _segs. Please pay attention to their dimensions:
+   For example, we have A threads, each could process B samples, so the input and output should be a 2-dimensional array.
+
+   Other than that, the main body of two version is the same.
+
+2. in compilation, "-lpthread" must come last!
+
+3. Speed test: to segment 2847972 sentences, takes 255s vs 28s (9.1x speed-up)
+
+
+Comment:
+	this tool contains two basic ways to do segmentation: 
+	first is MM(maximum word match). Assuming we have a high quality dict,
+	then for all the words in it, we regard as the right segmentation. So from the beginning, we want to match with the longest word in dict,
+	if there is a ambiguity, like ABCDE could be segmented as "AB CD E" or "A BC DE", we ignore this span. 
+
+	Second is n-gram seg. To solve the ambiguity above we need sth. to evaluate the sequence, the simplist way is by n-gram lm.
+	So we train a lm with the result of MM. Then do n-gram seg: first build a lattice, which contains all the ambiguious edges,
+	then we use lm to score the lattice and find the path with the highest score.
+	Noted that here we actually keep the signiture of the state in lattice as the n-1 gram history, and do state combination like MT.
+	So the code is much like a simple case of MT decoding process, and it works well.
+	Another big part of it is the storage of LM, we use a map-based trie tree to store the n-gram,
+	and follow a strict formula to calculate the lm probs (details see the comments in code).
+	Finally multi-threading give a great speed boost. 
